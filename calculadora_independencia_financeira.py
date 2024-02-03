@@ -1,33 +1,58 @@
 from utils import taxa_anual_para_mensal, calcular_anos_meses, formatar_valor
 
 
-class CalculadoraInvestimento:
-    def __init__(self, valor_inicial, valor_mensal, taxa_juros_anual, periodo_anos, salario_alvo, valor_total_alvo):
-        self.valor_inicial = valor_inicial
-        self.valor_aporte_mensal = valor_mensal
-        self.taxa_juros_anual = taxa_juros_anual
-        self.taxa_juros_mensal = taxa_anual_para_mensal(taxa_juros_anual)
+class CalculadoraIndependenciaFinanceira:
+    def __init__(self):
+        # Valores padrão
+        self.valor_aporte_inicial = 0
+        self.valor_aporte_mensal = 1000
+        self.taxa_juros_anual = 6
+        self.taxa_juros_mensal = 0.49
+        self.periodo_alvo_anos = 1
+        self.periodo_alvo_meses = 12
+        self.salario_alvo = 0
+        self.valor_total_alvo = 0
 
-        self.salario_alvo = salario_alvo
-        self.valor_total_alvo = valor_total_alvo
-        self.periodo_alvo_anos = periodo_anos
-        self.periodo_alvo_meses = periodo_anos * 12 if periodo_anos else 0
-
+        # Variáveis adicionais
         self.juros = 0
         self.total_juros = 0
-        self.total_investido = self.total_acumulado = valor_inicial
+        self.total_investido = 0
+        self.total_acumulado = 0
         self.historico = []
         self.ultimo_milhao_atingido = 0
         self.milhoes_atingidos_historico = []
 
         # Informações sobre os alvos atingidos
         self.alvo_atingido = {}
+
+        # Informação sobre se configurações iniciais e os limites foram definidos
+        self.alvo_definido = False
+        self.configuracao_inicial_definida = False
+
+    def configurar_investimento(self, _valor_inicial, _valor_aporte_mensal, _taxa_juros_anual):
+        self.valor_aporte_inicial = _valor_inicial
+        self.valor_aporte_mensal = _valor_aporte_mensal
+        self.taxa_juros_anual = _taxa_juros_anual
+        self.taxa_juros_mensal = taxa_anual_para_mensal(_taxa_juros_anual)
+
+        self.configuracao_inicial_definida = True
+
+    def configurar_alvos(self, _periodo_alvo_anos, _salario_alvo, _valor_total_alvo):
+        self.periodo_alvo_anos = _periodo_alvo_anos
+        self.periodo_alvo_meses = _periodo_alvo_anos * 12 if _periodo_alvo_anos else 0
+        self.salario_alvo = _salario_alvo
+        self.valor_total_alvo = _valor_total_alvo
+
+        # Configurar alvos atingidos
         if self.periodo_alvo_anos:
             self.alvo_atingido['periodo'] = {'atingido': False, 'info': ''}
         if self.salario_alvo:
             self.alvo_atingido['salario'] = {'atingido': False, 'info': 'Alvo de salário não atingido!'}
         if self.valor_total_alvo:
             self.alvo_atingido['total'] = {'atingido': False, 'info': 'Alvo de valor total não atingido!'}
+
+        # Verificar limites após configurar os alvos
+        self.alvo_definido = any([self.periodo_alvo_anos, self.salario_alvo, self.valor_total_alvo])
 
     def calcular_investimento(self):
         """
@@ -39,23 +64,23 @@ class CalculadoraInvestimento:
         :return: None
         """
 
-        # Período de investimento em meses (padrão: 100 anos caso o período alvo não seja definido)
-        periodo_investimento = 12 * 100 if not self.periodo_alvo_meses else self.periodo_alvo_meses
-        for mes in range(0, periodo_investimento):
+        # Período de investimento em meses (padrão: 50 anos caso o período alvo não seja definido)
+        periodo_investimento = 12 * 50 if not self.periodo_alvo_meses else self.periodo_alvo_meses
+        for mes in range(1, periodo_investimento + 1):
             self.historico.append({"mes": mes,
-                                   "total_investido": self.total_investido,
-                                   "total_acumulado": self.total_acumulado,
-                                   "juros": self.juros,
-                                   "total_juros": self.total_juros
+                                   "total_investido": round(self.total_investido, 2),
+                                   "total_acumulado": round(self.total_acumulado, 2),
+                                   "juros": round(self.juros, 2),
+                                   "total_juros": round(self.total_juros, 2)
                                    })
 
             milhoes_atingidos = self.total_acumulado // 1000000
-            tempo_atingir = calcular_anos_meses(mes)
+            tempo_para_atingir = calcular_anos_meses(mes)
 
             # Adiciona ao histórico de milhões atingidos
             if milhoes_atingidos > self.ultimo_milhao_atingido:
                 milhoes_atingidos_info = {"milhao": milhoes_atingidos,
-                                          "tempo": tempo_atingir,
+                                          "tempo": tempo_para_atingir,
                                           "mes": mes}
                 self.ultimo_milhao_atingido = milhoes_atingidos
                 self.milhoes_atingidos_historico.append(milhoes_atingidos_info)
@@ -70,19 +95,24 @@ class CalculadoraInvestimento:
                 self.alvo_atingido['total']['info'] = f'Valor total alvo atingido em {calcular_anos_meses(mes)}'
                 break
 
+            if self.periodo_alvo_anos and mes == self.periodo_alvo_meses:
+                self.alvo_atingido['periodo']['atingido'] = True
+                self.alvo_atingido['periodo']['info'] = 'Período alvo atingido!'
+                break
+
+            # Calcula o valor do investimento e juros recebidos para o próximo mês
             self.juros = self.total_acumulado * self.taxa_juros_mensal / 100
             self.total_juros += self.juros
             self.total_investido += self.valor_aporte_mensal
             self.total_acumulado += self.valor_aporte_mensal + self.juros
 
-            if self.periodo_alvo_anos and mes == self.periodo_alvo_meses:
-                self.alvo_atingido['periodo']['atingido'] = True
-                self.alvo_atingido['periodo']['info'] = 'Período alvo atingido!'
-
     def imprimir_configuracoes(self):
         print('Configurações:')
+        if not self.configuracao_inicial_definida:
+            print("AVISO: Nenhuma configuração inicial foi definida! Configuração padrão foi utilizada.")
+
         table_data = [
-            ['Valor Inicial', formatar_valor(self.valor_inicial)],
+            ['Valor Inicial', formatar_valor(self.valor_aporte_inicial)],
             ['Aporte Mensal', formatar_valor(self.valor_aporte_mensal)],
             ['Taxa de Juros Anual', f'{self.taxa_juros_anual}%'],
             ['Taxa de Juros Mensal', f'{self.taxa_juros_mensal}%'],
@@ -91,10 +121,9 @@ class CalculadoraInvestimento:
         print()
 
     def imprimir_alvos(self):
-        if not self.salario_alvo and not self.valor_total_alvo:
-            return
-
         print('Alvos:')
+        if not self.alvo_definido:
+            print("AVISO: Nenhum alvo foi definido! Período alvo padrão de 1 ano foi utilizado.")
 
         table_data = [
             ['Período Alvo', f'{self.periodo_alvo_anos} anos ({self.periodo_alvo_meses} meses)'],
@@ -120,7 +149,14 @@ class CalculadoraInvestimento:
 
     def imprimir_progressao_milhoes(self):
         print('\nProgressão de Milhões Atingidos:')
-        print(f"┏ {formatar_valor(self.valor_inicial)}")
+        print(f"┏ {formatar_valor(self.valor_aporte_inicial)}")
+
+        # checa se o histórico de milhões atingidos está vazio
+        if not self.milhoes_atingidos_historico:
+            print(f"┗ {formatar_valor(self.total_acumulado)}")
+            print("Você ainda não atingiu 1M. Continue investindo!")
+            return
+
         for i in range(1, len(self.milhoes_atingidos_historico)):
             milhao_anterior = self.milhoes_atingidos_historico[i - 1]
             milhao_atual = self.milhoes_atingidos_historico[i]
@@ -151,6 +187,10 @@ class CalculadoraInvestimento:
         try:
             import matplotlib.pyplot as plt
 
+            if not self.historico:
+                print('Nenhum dado para plotar o gráfico.')
+                return
+
             # Extrair dados do histórico
             meses = [entry['mes'] for entry in self.historico]
             _total_acumulado = [entry['total_acumulado'] for entry in self.historico]
@@ -167,7 +207,7 @@ class CalculadoraInvestimento:
             num_milhoes_atingidos = [entry['total_acumulado'] // 1000000 for entry in self.historico]
 
             # Ajustar a escala do eixo y começando do VALOR_INICIAL
-            valor_inicial_ajustado = self.valor_inicial - (self.valor_inicial % 50000)
+            valor_inicial_ajustado = self.valor_aporte_inicial - (self.valor_aporte_inicial % 50000)
             plt.yticks(
                 range(valor_inicial_ajustado, int(max(max(_total_acumulado), max(_total_investido))) + 50000, 50000))
 
@@ -213,27 +253,19 @@ class CalculadoraInvestimento:
 
 
 if __name__ == '__main__':
-    # CONFIGURAÇÕES DE INVESTIMENTO
-    VALOR_INICIAL = 100000  # Valor inicial investido
-    VALOR_APORTE_MENSAL = 5000  # Valor mensal a ser investido
-    TAXA_JUROS_ANUAL = 8
+    # CONFIGURAÇÕES INICIAIS
+    valor_inicial = 100000  # Valor inicial investido
+    valor_aporte_mensal = 5000  # Valor a ser investido mensalmente
+    taxa_juros_anual = 6  # Taxa de juros anual
 
     # CONFIGURAÇÕES DE ALVOS
-    """
-    - Defina pelo menos um alvo a ser atingido
-    - Você pode definir mais de um alvo, mas o investimento será calculado até que o primeiro alvo seja atingido.
-    - Defina um alvo como 0 para desativá-lo
-    """
-    SALARIO_ALVO = 10000  # Alvo de renda mensal
-    VALOR_TOTAL_ALVO = 0
-    PERIODO_ALVO_ANOS = 0
+    periodo_alvo_anos = 10  # Alvo de período de investimento em anos
+    salario_alvo = 0  # Alvo de renda mensal
+    valor_total_alvo = 0  # Alvo de valor total acumulado
 
-    investimento = CalculadoraInvestimento(VALOR_INICIAL,
-                                           VALOR_APORTE_MENSAL,
-                                           TAXA_JUROS_ANUAL,
-                                           PERIODO_ALVO_ANOS,
-                                           SALARIO_ALVO,
-                                           VALOR_TOTAL_ALVO)
+    investimento = CalculadoraIndependenciaFinanceira()
+    investimento.configurar_investimento(valor_inicial, valor_aporte_mensal, taxa_juros_anual)
+    investimento.configurar_alvos(periodo_alvo_anos, salario_alvo, valor_total_alvo)
 
     investimento.calcular_investimento()
     investimento.imprimir_relatorio_final()
